@@ -1,0 +1,39 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EstimaSoft{% block title_suffix %}{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'estimator/style.css' %}">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>EstimaSoft</h1>
+        <p>Estimación de esfuerzo con perceptrón multicapa</p>
+      </div>
+      <nav>
+        <a href="{% url 'estimator:panel' %}" class="{% if request.resolver_match.url_name == 'panel' %}active{% endif %}">Panel</a>
+        <a href="{% url 'estimator:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="{% url 'estimator:new_estimation' %}" class="{% if request.resolver_match.url_name == 'new_estimation' %}active{% endif %}">Nueva estimación</a>
+        <a href="{% url 'estimator:model_eval' %}" class="{% if request.resolver_match.url_name == 'model_eval' %}active{% endif %}">Modelo y evaluación</a>
+        <a href="{% url 'estimator:local_projects' %}" class="{% if request.resolver_match.url_name == 'local_projects' %}active{% endif %}">Proyectos locales</a>
+      </nav>
+      <footer>Tesis de grado · Carrera de Informática · UMSA</footer>
+    </aside>
+    <main class="main">
+      {% if messages %}
+        <ul class="messages">
+          {% for message in messages %}
+            <li class="{{ message.tags }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

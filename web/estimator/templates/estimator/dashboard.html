@@ -1,0 +1,213 @@
+{% extends "estimator/base.html" %}
+{% load l10n %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>Dashboard</h2>
+    <p class="subtitle">Vista analítica de estimaciones, modelo y proyectos locales</p>
+  </div>
+</div>
+
+<div class="grid grid-4" style="margin-bottom:16px;">
+  <div class="card">
+    <div class="stat-label">Costo total estimado</div>
+    <div class="stat-value">
+      {% if total_cost %}<span class="countup" data-decimals="0" data-value="{% localize off %}{{ total_cost }}{% endlocalize %}">{{ total_cost|floatformat:0 }}</span>{% else %}—{% endif %}
+      <span class="stat-unit">Bs</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="stat-label">KLOC promedio por proyecto</div>
+    <div class="stat-value">
+      {% if avg_kloc %}<span class="countup" data-decimals="1" data-value="{% localize off %}{{ avg_kloc }}{% endlocalize %}">{{ avg_kloc|floatformat:1 }}</span>{% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Precisión del modelo (PRED 25)</div>
+    <div class="stat-value">
+      {% if pred25 is not None %}<span class="countup" data-decimals="0" data-value="{% widthratio pred25 1 100 %}">{% widthratio pred25 1 100 %}</span>%{% else %}—{% endif %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Proyectos locales con error &gt; 25 %</div>
+    <div class="stat-value">
+      <span class="countup" data-decimals="0" data-value="{{ high_error_count }}">{{ high_error_count }}</span>
+      <span class="stat-unit">de {{ local_projects_count }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom:16px;">
+  <div class="card">
+    <h3>Costo estimado en el tiempo</h3>
+    <p class="hint">Cada punto es una estimación guardada, en orden cronológico</p>
+    {% if timeline %}
+    {% localize off %}
+    <svg class="timeline-svg" viewBox="0 0 {{ timeline.width }} {{ timeline.height }}" role="img" aria-label="Costo estimado de cada estimación guardada, en orden cronológico" style="width:100%; height:auto;">
+      <line class="grid-line" x1="0" y1="{{ timeline.plot_bottom }}" x2="{{ timeline.width }}" y2="{{ timeline.plot_bottom }}"></line>
+      <path class="timeline-area" d="{{ timeline.area }}"></path>
+      <path class="timeline-line" d="{{ timeline.path }}"></path>
+      {% for p in timeline.points %}
+      <circle class="timeline-dot" cx="{{ p.x }}" cy="{{ p.y }}" r="4.5"><title>{{ p.label }} · Bs {{ p.value|floatformat:0 }} · {{ p.date|date:"d/m/Y" }}</title></circle>
+      {% endfor %}
+      <text class="axis-label" x="{{ timeline.first.x }}" y="{{ timeline.height }}" text-anchor="start">{{ timeline.first.date|date:"d/m" }}</text>
+      <text class="axis-label" x="{{ timeline.last.x }}" y="{{ timeline.height }}" text-anchor="end">{{ timeline.last.date|date:"d/m" }}</text>
+    </svg>
+    {% endlocalize %}
+    {% else %}
+    <p class="hint">Todavía no hay estimaciones guardadas.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Estimaciones por modo de desarrollo</h3>
+    <p class="hint">Distribución de los proyectos estimados</p>
+    {% if mode_donut %}
+    <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+      {% localize off %}
+      <svg class="donut-svg" width="{{ mode_donut.size }}" height="{{ mode_donut.size }}" viewBox="0 0 {{ mode_donut.size }} {{ mode_donut.size }}" role="img" aria-label="Distribución de estimaciones por modo de desarrollo">
+        <circle class="donut-track" cx="{{ mode_donut.cx }}" cy="{{ mode_donut.cy }}" r="{{ mode_donut.r }}" stroke-width="{{ mode_donut.stroke }}" fill="none"></circle>
+        {% for seg in mode_donut.segments %}
+        {% if seg.value %}
+        <circle class="donut-segment chart-color {{ seg.css_class }}" cx="{{ mode_donut.cx }}" cy="{{ mode_donut.cy }}" r="{{ mode_donut.r }}" stroke-width="{{ mode_donut.stroke }}" fill="none" stroke-dasharray="{{ seg.dasharray }}" stroke-dashoffset="{{ seg.dashoffset }}" transform="rotate(-90 {{ mode_donut.cx }} {{ mode_donut.cy }})"><title>{{ seg.label }}: {{ seg.value }} ({{ seg.pct }}%)</title></circle>
+        {% endif %}
+        {% endfor %}
+        <text x="{{ mode_donut.cx }}" y="{{ mode_donut.cy }}" text-anchor="middle" dominant-baseline="central" class="donut-center">{{ mode_donut.total }}</text>
+      </svg>
+      {% endlocalize %}
+      <div class="chart-legend" style="flex-direction:column; align-items:flex-start; gap:8px;">
+        {% for seg in mode_donut.segments %}
+        <div class="legend-item"><span class="legend-swatch chart-color {{ seg.css_class }}"></span>{{ seg.label }} · {{ seg.value }} ({{ seg.pct }}%)</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <p class="hint">Todavía no hay estimaciones guardadas.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h3>Top proyectos por costo estimado</h3>
+    <p class="hint">Las estimaciones guardadas de mayor costo</p>
+    {% for e in ranking %}
+    <div class="bar-row">
+      <div class="bar-label"><span>{{ e.project_name }}</span><span>Bs {{ e.cost_bs|floatformat:0 }}</span></div>
+      <div class="bar-track"><div class="bar-fill mlp" style="width: {% widthratio e.cost_bs ranking_max 100 %}%"></div></div>
+    </div>
+    {% empty %}
+    <p class="hint">Todavía no hay estimaciones guardadas.</p>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <h3>Proyectos locales por error del modelo</h3>
+    <p class="hint">Diferencia entre el esfuerzo real y el estimado por el MLP</p>
+    {% if error_histogram %}
+    {% for b in error_histogram.buckets %}
+    <div class="bar-row">
+      <div class="bar-label"><span>{{ b.label }}</span><span>{{ b.count }} proyecto{{ b.count|pluralize }}</span></div>
+      <div class="bar-track"><div class="bar-fill status-{{ b.status }}" style="width: {{ b.pct }}%"></div></div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="hint">Todavía no hay proyectos locales con estimación del MLP.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function formatCount(value, decimals) {
+    return decimals > 0 ? value.toFixed(decimals).replace('.', ',') : Math.round(value).toString();
+  }
+
+  document.querySelectorAll('.countup').forEach(function (el) {
+    var target = parseFloat(el.dataset.value);
+    if (Number.isNaN(target)) return;
+    var decimals = parseInt(el.dataset.decimals || '0', 10);
+    var duration = 700;
+    var start = null;
+    function frame(now) {
+      if (start === null) start = now;
+      var p = Math.min((now - start) / duration, 1);
+      el.textContent = formatCount(target * easeOutCubic(p), decimals);
+      if (p < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  });
+
+  document.querySelectorAll('.bar-fill').forEach(function (el, i) {
+    var target = el.style.width;
+    el.style.transition = 'none';
+    el.style.width = '0%';
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        el.style.transition = 'width 500ms ease-out';
+        el.style.transitionDelay = (i * 40) + 'ms';
+        el.style.width = target;
+      });
+    });
+  });
+
+  document.querySelectorAll('.donut-segment').forEach(function (el) {
+    var target = el.getAttribute('stroke-dasharray');
+    var parts = target.split(' ').map(Number);
+    var total = parts[0] + parts[1];
+    el.style.transition = 'none';
+    el.style.strokeDasharray = '0 ' + total;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        el.style.transition = 'stroke-dasharray 650ms ease-out';
+        el.style.strokeDasharray = target;
+      });
+    });
+  });
+
+  document.querySelectorAll('.timeline-line').forEach(function (path) {
+    var length = path.getTotalLength();
+    path.style.transition = 'none';
+    path.style.strokeDasharray = length;
+    path.style.strokeDashoffset = length;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        path.style.transition = 'stroke-dashoffset 650ms ease-out';
+        path.style.strokeDashoffset = '0';
+      });
+    });
+  });
+
+  document.querySelectorAll('.timeline-area').forEach(function (el) {
+    el.style.transition = 'none';
+    el.style.opacity = '0';
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        el.style.transition = 'opacity 500ms ease-out 400ms';
+        el.style.opacity = '';
+      });
+    });
+  });
+
+  document.querySelectorAll('.timeline-dot').forEach(function (el, i) {
+    el.style.transition = 'none';
+    el.style.opacity = '0';
+    el.style.transform = 'scale(0.4)';
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        var delay = 350 + i * 40;
+        el.style.transition = 'opacity 300ms ease-out ' + delay + 'ms, transform 300ms ease-out ' + delay + 'ms';
+        el.style.opacity = '1';
+        el.style.transform = 'scale(1)';
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}

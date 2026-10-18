@@ -1,0 +1,68 @@
+{% extends "estimator/base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>Panel</h2>
+    <p class="subtitle">Resumen del modelo y de las estimaciones realizadas</p>
+  </div>
+  <a href="{% url 'estimator:new_estimation' %}" class="btn">Nueva estimación</a>
+</div>
+
+{% if not model_available %}
+  <div class="notice">{{ model_message }}</div>
+{% else %}
+  <div class="grid grid-4" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="stat-label">Estimaciones registradas</div>
+      <div class="stat-value">{{ estimations_count }}</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Proyectos locales cargados</div>
+      <div class="stat-value">{{ local_projects_count }}</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">MAE del modelo (validación)</div>
+      <div class="stat-value">{{ mae_mlp|floatformat:1 }}<span class="stat-unit">persona-mes</span></div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Error frente a COCOMO</div>
+      <div class="stat-value" style="color: {% if error_vs_cocomo_pct < 0 %}#1a7f4e{% else %}#c2541f{% endif %};">{{ error_vs_cocomo_pct|floatformat:0 }}%</div>
+    </div>
+  </div>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>Precisión por método</h3>
+      <p class="hint">Error absoluto medio, menor es mejor</p>
+      {% for metodo, vals in cv_metrics.items %}
+        <div class="bar-row">
+          <div class="bar-label"><span>{% if metodo == 'mlp' %}Perceptrón multicapa{% elif metodo == 'linreg' %}Regresión lineal{% else %}COCOMO intermedio{% endif %}</span><span>{{ vals.MAE|floatformat:1 }}</span></div>
+          <div class="bar-track"><div class="bar-fill {{ metodo }}" style="width: {% widthratio vals.MAE max_mae 100 %}%"></div></div>
+        </div>
+      {% endfor %}
+      <a href="{% url 'estimator:model_eval' %}" class="pill">Ver evaluación completa →</a>
+    </div>
+
+    <div class="card">
+      <h3>Últimas estimaciones</h3>
+      <table>
+        <thead>
+          <tr><th>Proyecto</th><th>KLOC</th><th>Esfuerzo (PM)</th><th>Costo (Bs)</th></tr>
+        </thead>
+        <tbody>
+          {% for e in recent_estimations %}
+          <tr>
+            <td>{{ e.project_name }}</td>
+            <td>{{ e.kloc|floatformat:1 }}</td>
+            <td>{{ e.effort_mlp_pm|floatformat:1 }}</td>
+            <td>{{ e.cost_bs|floatformat:0 }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" style="color:#9aa1b0;">Todavía no hay estimaciones registradas.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

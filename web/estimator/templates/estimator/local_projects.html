@@ -1,0 +1,55 @@
+{% extends "estimator/base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>Proyectos locales</h2>
+    <p class="subtitle">Proyectos bolivianos con esfuerzo real, usados para validar y reentrenar el modelo</p>
+  </div>
+</div>
+
+<div class="grid grid-2" style="align-items:start;">
+  <div class="card">
+    <h3>Registros ({{ projects.count }})</h3>
+    <table>
+      <thead>
+        <tr><th>Proyecto</th><th>Institución</th><th>KLOC</th><th>Real (PM)</th><th>MLP (PM)</th></tr>
+      </thead>
+      <tbody>
+        {% for p in projects %}
+        <tr>
+          <td>{{ p.project_name }}</td>
+          <td>{{ p.institution|default:"—" }}</td>
+          <td>{{ p.kloc|floatformat:1 }}</td>
+          <td>{{ p.effort_real_pm|floatformat:1 }}</td>
+          <td{% if p.error_pct and p.error_pct > 25 %} class="error-row"{% endif %}>
+            {% if p.effort_mlp_pm %}{{ p.effort_mlp_pm|floatformat:1 }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="color:#9aa1b0;">Todavía no hay proyectos locales registrados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="hint" style="margin-top:10px;">Errores mayores a 25% se marcan en naranja.</p>
+  </div>
+
+  <div class="card">
+    <h3>Registrar proyecto terminado</h3>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        {% for field in form %}
+        <div class="form-field">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}<p style="color:#b23a2e;font-size:0.78rem;">{{ field.errors|join:", " }}</p>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn">Guardar y continuar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

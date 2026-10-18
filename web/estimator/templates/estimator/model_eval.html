@@ -1,0 +1,143 @@
+{% extends "estimator/base.html" %}
+{% load l10n %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>Modelo y evaluación</h2>
+    <p class="subtitle">Resultados de la validación cruzada (10 particiones)</p>
+  </div>
+</div>
+
+{% if not model_available %}
+  <div class="notice">{{ model_message }}</div>
+{% else %}
+  <div class="grid grid-2" style="margin-bottom:16px;">
+    <div class="card">
+      <h3>Conjunto de datos</h3>
+      <table>
+        <tbody>
+          <tr><td>COCOMO81</td><td style="text-align:right;">{{ metrics.dataset.cocomo81 }}</td></tr>
+          <tr><td>NASA93</td><td style="text-align:right;">{{ metrics.dataset.nasa93 }}</td></tr>
+          <tr><td><strong>Total de proyectos</strong></td><td style="text-align:right;"><strong>{{ metrics.dataset.total }}</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Arquitectura seleccionada</h3>
+      <p class="hint">Elegida por validación cruzada interna entre varias arquitecturas candidatas (ver eval_arch_selection.csv)</p>
+      <p style="font-size:0.9rem;">
+        Entradas: {{ metrics.architecture.inputs|join:", " }}<br>
+        Capas ocultas: {{ metrics.architecture.hidden_layers|join:" → " }} → 1 salida<br>
+        Activación ReLU · {{ metrics.architecture.optimizer }}<br>
+        Dropout {{ metrics.architecture.dropout }} · L2 {{ metrics.architecture.l2 }}<br>
+        Salida: {{ metrics.architecture.output }}
+      </p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3>Prueba de hipótesis</h3>
+    <p class="hint">Wilcoxon sobre los errores pareados MLP vs COCOMO</p>
+    <div class="stat-value" style="font-size:1.6rem;">p = {{ metrics.hypothesis_test.pvalue|floatformat:4 }}</div>
+    <div class="notice" style="margin-top:10px;">
+      {% if metrics.hypothesis_test.reject_h0 and metrics.hypothesis_test.mlp_better %}
+        p &lt; 0.05 y el MLP tiene menor error: se rechaza H0, el MLP comete un error significativamente menor.
+      {% elif metrics.hypothesis_test.reject_h0 %}
+        p &lt; 0.05, pero el MLP <strong>no</strong> tiene menor error que COCOMO: la diferencia es significativa en contra del MLP, Hi no se cumple con este modelo todavía.
+      {% else %}
+        p ≥ 0.05: no hay evidencia suficiente para rechazar H0.
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3>Métricas por método</h3>
+    <table>
+      <thead>
+        <tr><th>Método</th><th>MAE (PM)</th><th>MMRE</th><th>MdMRE</th><th>PRED(25)</th></tr>
+      </thead>
+      <tbody>
+        {% for metodo, vals in metrics.cv_metrics.items %}
+        <tr{% if metodo == 'mlp' %} style="font-weight:600;"{% endif %}>
+          <td>{% if metodo == 'mlp' %}Perceptrón multicapa{% elif metodo == 'linreg' %}Regresión lineal{% else %}COCOMO intermedio{% endif %}</td>
+          <td>{{ vals.MAE|floatformat:1 }}</td>
+          <td>{{ vals.MMRE|floatformat:2 }}</td>
+          <td>{{ vals.MdMRE|floatformat:2 }}</td>
+          <td>{% widthratio vals.PRED25 1 100 %}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="hint" style="margin-top:10px;">MAE en persona-mes; MMRE y MdMRE: error relativo medio y mediano; PRED(25): proyectos estimados con error ≤ 25%.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <h3>Esfuerzo real vs. estimado</h3>
+    <p class="hint">Escala logarítmica · validación cruzada, 156 proyectos · línea punteada: estimación perfecta</p>
+    <div class="chart-legend">
+      <span class="legend-item"><span class="legend-swatch mlp"></span>Perceptrón multicapa</span>
+      <span class="legend-item"><span class="legend-swatch cocomo"></span>COCOMO intermedio</span>
+    </div>
+    <div class="scatter-wrap">
+      {% localize off %}
+      <svg viewBox="0 0 {{ scatter.width }} {{ scatter.height }}" class="scatter-svg" id="scatter-chart">
+        {% for t in scatter.yticks %}
+        <line x1="{{ scatter.plot_left }}" y1="{{ t.pos }}" x2="{{ scatter.plot_right }}" y2="{{ t.pos }}" class="grid-line" />
+        <text x="{{ scatter.plot_left|add:-8 }}" y="{{ t.pos|add:4 }}" class="axis-label" text-anchor="end">{{ t.label }}</text>
+        {% endfor %}
+        {% for t in scatter.xticks %}
+        <text x="{{ t.pos }}" y="{{ scatter.plot_bottom|add:20 }}" class="axis-label" text-anchor="middle">{{ t.label }}</text>
+        {% endfor %}
+        <text x="{{ scatter.plot_left }}" y="{{ scatter.height|add:-6 }}" class="axis-title">Esfuerzo real (persona-mes)</text>
+        <text x="14" y="16" class="axis-title">Estimado</text>
+
+        <line x1="{{ scatter.diag.x1 }}" y1="{{ scatter.diag.y1 }}" x2="{{ scatter.diag.x2 }}" y2="{{ scatter.diag.y2 }}" class="diag-line" />
+
+        {% for p in scatter.points_cocomo %}
+        <circle cx="{{ p.cx }}" cy="{{ p.cy }}" r="4" class="dot cocomo" data-name="{{ p.name }}" data-real="{{ p.real }}" data-pred="{{ p.pred }}" data-series="COCOMO intermedio"></circle>
+        {% endfor %}
+        {% for p in scatter.points_mlp %}
+        <circle cx="{{ p.cx }}" cy="{{ p.cy }}" r="4" class="dot mlp" data-name="{{ p.name }}" data-real="{{ p.real }}" data-pred="{{ p.pred }}" data-series="Perceptrón multicapa"></circle>
+        {% endfor %}
+      </svg>
+      {% endlocalize %}
+      <div id="scatter-tooltip" class="chart-tooltip" hidden></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Arquitecturas evaluadas en la CV interna</h3>
+    <table>
+      <thead><tr><th>Arquitectura</th><th>Veces elegida (de 10 folds)</th></tr></thead>
+      <tbody>
+        {% for name, count in metrics.architecture.selection_counts.items %}
+        <tr><td>{{ name }}</td><td>{{ count }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    (function () {
+      const svg = document.getElementById('scatter-chart');
+      const tooltip = document.getElementById('scatter-tooltip');
+      if (!svg || !tooltip) return;
+      svg.querySelectorAll('.dot').forEach(function (dot) {
+        dot.addEventListener('mouseenter', function (e) {
+          tooltip.innerHTML = '<strong>' + dot.dataset.series + '</strong><br>' +
+            dot.dataset.name + '<br>Real: ' + dot.dataset.real + ' PM · Estimado: ' + dot.dataset.pred + ' PM';
+          tooltip.hidden = false;
+        });
+        dot.addEventListener('mousemove', function (e) {
+          const wrap = svg.closest('.scatter-wrap').getBoundingClientRect();
+          tooltip.style.left = (e.clientX - wrap.left + 14) + 'px';
+          tooltip.style.top = (e.clientY - wrap.top + 14) + 'px';
+        });
+        dot.addEventListener('mouseleave', function () {
+          tooltip.hidden = true;
+        });
+      });
+    })();
+  </script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends "estimator/base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2>Nueva estimación</h2>
+    <p class="subtitle">Ingrese las características del proyecto para estimar esfuerzo y costo</p>
+  </div>
+</div>
+
+<div class="grid grid-2" style="align-items:start;">
+  <div class="card">
+    <h3>Datos del proyecto</h3>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="{{ form.project_name.id_for_label }}">Nombre del proyecto</label>
+          {{ form.project_name }}
+        </div>
+        <div class="form-field">
+          <label for="{{ form.kloc.id_for_label }}">Tamaño estimado (KLOC)</label>
+          {{ form.kloc }}
+        </div>
+        <div class="form-field">
+          <label for="{{ form.mode.id_for_label }}">Modo de desarrollo</label>
+          {{ form.mode }}
+        </div>
+        <div class="form-field">
+          <label for="{{ form.rate_per_pm.id_for_label }}">Tarifa promedio (Bs/persona-mes)</label>
+          {{ form.rate_per_pm }}
+        </div>
+      </div>
+
+      <div class="section-title">Factores de costo <span style="font-weight:400;color:#6b7280;">· Escala de COCOMO: muy bajo, bajo, nominal, alto, muy alto</span></div>
+      <div class="form-grid">
+        {% for field in form %}
+          {% if field.name in cost_driver_names %}
+          <div class="form-field">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn">Estimar</button>
+        <button type="submit" name="save" value="1" class="btn btn-secondary">Guardar estimación</button>
+      </div>
+    </form>
+  </div>
+
+  <div>
+    {% if result %}
+      <div class="result-box">
+        <div class="stat-label">Esfuerzo estimado (perceptrón multicapa)</div>
+        <div class="stat-value">{{ result.effort_mlp_pm|floatformat:1 }}<span class="stat-unit" style="color:#aeb4c4;">persona-mes</span></div>
+        <div class="result-sub">Rango probable: {{ result.range_low_pm|floatformat:1 }} – {{ result.range_high_pm|floatformat:1 }}</div>
+      </div>
+
+      <div class="grid grid-4" style="margin-top:14px;">
+        <div class="card">
+          <div class="stat-label">Costo</div>
+          <div class="stat-value" style="font-size:1.2rem;">Bs {{ result.cost_bs|floatformat:0 }}</div>
+        </div>
+        <div class="card">
+          <div class="stat-label">Duración</div>
+          <div class="stat-value" style="font-size:1.2rem;">{{ result.duration_months|floatformat:1 }}<span class="stat-unit">meses</span></div>
+        </div>
+        <div class="card">
+          <div class="stat-label">Personal</div>
+          <div class="stat-value" style="font-size:1.2rem;">{{ result.staff_count|floatformat:1 }}<span class="stat-unit">pers.</span></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px;">
+        <h3>Comparación de métodos</h3>
+        <div class="bar-row">
+          <div class="bar-label"><span>Perceptrón multicapa</span><span>{{ result.effort_mlp_pm|floatformat:1 }} PM</span></div>
+          <div class="bar-track"><div class="bar-fill mlp" style="width: 100%"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>COCOMO intermedio</span><span>{{ result.effort_cocomo_pm|floatformat:1 }} PM</span></div>
+          <div class="bar-track"><div class="bar-fill cocomo" style="width: {% widthratio result.effort_cocomo_pm result.effort_mlp_pm 100 %}%"></div></div>
+        </div>
+        <p class="hint" style="margin-top:10px;">Costo = esfuerzo × tarifa. La duración y el personal se calculan con las ecuaciones de COCOMO a partir del esfuerzo estimado.</p>
+      </div>
+    {% else %}
+      <div class="card">
+        <h3>Resultado</h3>
+        <p class="hint">Completa el formulario y presiona "Estimar" para ver el esfuerzo, costo, duración y personal estimados.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

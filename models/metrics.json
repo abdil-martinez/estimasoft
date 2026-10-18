@@ -1,0 +1,56 @@
+{
+  "dataset": {
+    "cocomo81": 63,
+    "nasa93": 93,
+    "total": 156
+  },
+  "architecture": {
+    "hidden_layers": [
+      4
+    ],
+    "inputs": [
+      "log_kloc",
+      "mode_ord",
+      "log_eaf"
+    ],
+    "dropout": 0.0,
+    "l2": 0.001,
+    "optimizer": "Adam (lr=0.001)",
+    "output": "log(esfuerzo en persona-mes)",
+    "selection_counts": {
+      "mlp_4": 5,
+      "mlp_8": 3,
+      "mlp_8_4": 1,
+      "mlp_8_reg": 1
+    }
+  },
+  "cv_metrics": {
+    "cocomo": {
+      "MAE": 343.2826024908955,
+      "MMRE": 0.5336283867089315,
+      "MdMRE": 0.2621803890026108,
+      "PRED25": 0.4743589743589743
+    },
+    "linreg": {
+      "MAE": 318.80878702168906,
+      "MMRE": 0.5050302098721436,
+      "MdMRE": 0.2608418201540817,
+      "PRED25": 0.4679487179487179
+    },
+    "mlp": {
+      "MAE": 339.85246540401266,
+      "MMRE": 0.6349076962554312,
+      "MdMRE": 0.3522287185761857,
+      "PRED25": 0.3269230769230769
+    }
+  },
+  "hypothesis_test": {
+    "test": "wilcoxon",
+    "comparison": "MLP vs COCOMO intermedio (errores absolutos pareados)",
+    "statistic": 4770.0,
+    "pvalue": 0.016667006885430123,
+    "alpha": 0.05,
+    "reject_h0": true,
+    "mlp_better": true
+  }
+}

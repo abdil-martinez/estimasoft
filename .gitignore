@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+
+node_modules/
+web/dist/
+web/.vite/
+
+.env
+web/db.sqlite3
+web/staticfiles/
+web/media/
+
+# Documentos de la tesis (borradores, no forman parte del software):
+# se mantienen solo en local, no se publican en este repo de codigo.
+*.docx
+*.pdf
+capitulos/
