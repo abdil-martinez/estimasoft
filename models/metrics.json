@@ -24,6 +24,15 @@
       "mlp_8_reg": 1
     }
   },
+  "training": {
+    "epochs_max": 200,
+    "patience": 20,
+    "epochs_run": 200,
+    "best_epoch": 200,
+    "final_train_loss": 0.212736576795578,
+    "final_val_loss": 0.7834979891777039,
+    "best_val_loss": 0.7834979891777039
+  },
   "cv_metrics": {
     "cocomo": {
       "MAE": 343.2826024908955,

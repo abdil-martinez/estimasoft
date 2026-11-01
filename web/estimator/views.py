@@ -2,8 +2,8 @@ from django.contrib import messages
 from django.shortcuts import redirect, render
 
 from . import ml
-from .charts import build_scatter
-from .dashboard_charts import build_error_histogram, build_mode_donut, build_timeline
+from .charts import build_loss_curve, build_scatter
+from .dashboard_charts import build_effort_scatter, build_local_error_bars, build_mode_donut
 from .forms import LocalProjectForm, NewEstimationForm
 from .models import COST_DRIVER_FIELDS, MODE_CHOICES, Estimation, LocalProject
 
@@ -32,8 +32,11 @@ def panel(request):
         cocomo = metrics["cv_metrics"]["cocomo"]
         context["mae_mlp"] = mlp["MAE"]
         context["error_vs_cocomo_pct"] = (mlp["MAE"] - cocomo["MAE"]) / cocomo["MAE"] * 100
+        context["error_vs_cocomo_pm"] = mlp["MAE"] - cocomo["MAE"]
         context["cv_metrics"] = metrics["cv_metrics"]
         context["max_mae"] = max(v["MAE"] for v in metrics["cv_metrics"].values())
+        context["best_mae_method"] = min(metrics["cv_metrics"], key=lambda m: metrics["cv_metrics"][m]["MAE"])
+        context["best_pred25_method"] = max(metrics["cv_metrics"], key=lambda m: metrics["cv_metrics"][m]["PRED25"])
     except FileNotFoundError:
         context["model_available"] = False
         context["model_message"] = _model_unavailable_message()
@@ -51,9 +54,8 @@ def dashboard(request):
     }
 
     if estimations:
-        context["total_cost"] = sum(e.cost_bs for e in estimations)
         context["avg_kloc"] = sum(e.kloc for e in estimations) / len(estimations)
-        context["timeline"] = build_timeline(estimations)
+        context["effort_scatter"] = build_effort_scatter(estimations)
 
         ranking = sorted(estimations, key=lambda e: e.cost_bs, reverse=True)[:5]
         context["ranking"] = ranking
@@ -66,16 +68,37 @@ def dashboard(request):
             [(label, mode_counts[code], code) for code, label in MODE_CHOICES]
         )
     else:
-        context["timeline"] = None
+        context["effort_scatter"] = None
         context["ranking"] = []
         context["mode_donut"] = None
 
-    context["error_histogram"] = build_error_histogram(local_projects)
+    # Error por metodo en los proyectos locales (MLP y COCOMO sobre el mismo
+    # caso) para distinguir si un error alto es del MLP especificamente o de
+    # ambos metodos frente al contexto local -- un conteo por balde no lo
+    # distingue.
+    local_error_rows = []
+    pred25_local = None
+    for p in local_projects:
+        if not p.effort_mlp_pm or not p.effort_real_pm:
+            continue
+        eaf = ml.eaf_from_ratings(p.cost_driver_values())
+        cocomo_pm = ml.cocomo_effort(p.kloc, p.mode, eaf)
+        error_mlp = abs(p.effort_real_pm - p.effort_mlp_pm) / p.effort_real_pm * 100
+        error_cocomo = abs(p.effort_real_pm - cocomo_pm) / p.effort_real_pm * 100
+        local_error_rows.append({"name": p.project_name, "error_mlp": error_mlp, "error_cocomo": error_cocomo})
+    context["local_error_bars"] = build_local_error_bars(local_error_rows)
+    context["local_error_n"] = len(local_error_rows)
+    if local_error_rows:
+        pred25_local = sum(1 for r in local_error_rows if r["error_mlp"] <= 25) / len(local_error_rows)
+    context["pred25_local"] = pred25_local
 
     try:
-        context["pred25"] = ml.model_metrics()["cv_metrics"]["mlp"]["PRED25"]
+        metrics = ml.model_metrics()
+        context["pred25"] = metrics["cv_metrics"]["mlp"]["PRED25"]
+        context["pred25_n"] = len(ml.eval_predictions())
     except FileNotFoundError:
         context["pred25"] = None
+        context["pred25_n"] = None
 
     return render(request, "estimator/dashboard.html", context)
 
@@ -128,6 +151,13 @@ def model_eval(request):
     except FileNotFoundError:
         context["model_available"] = False
         context["model_message"] = _model_unavailable_message()
+        return render(request, "estimator/model_eval.html", context)
+
+    try:
+        context["loss_curve"] = build_loss_curve(ml.train_history())
+    except FileNotFoundError:
+        context["loss_curve"] = None
+
     return render(request, "estimator/model_eval.html", context)
 
 

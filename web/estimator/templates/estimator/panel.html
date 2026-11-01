@@ -23,23 +23,44 @@
     <div class="card">
       <div class="stat-label">MAE del modelo (validación)</div>
       <div class="stat-value">{{ mae_mlp|floatformat:1 }}<span class="stat-unit">persona-mes</span></div>
+      <div class="hint">Error absoluto medio: en promedio, la predicción se aleja esto del esfuerzo real (de más o de menos)</div>
     </div>
     <div class="card">
-      <div class="stat-label">Error frente a COCOMO</div>
-      <div class="stat-value" style="color: {% if error_vs_cocomo_pct < 0 %}#1a7f4e{% else %}#c2541f{% endif %};">{{ error_vs_cocomo_pct|floatformat:0 }}%</div>
+      <div class="stat-label">Diferencia vs. COCOMO (hipótesis de tesis)</div>
+      <div class="stat-value" style="color: {% if error_vs_cocomo_pct <= -2 %}#1a7f4e{% elif error_vs_cocomo_pct >= 2 %}#c2541f{% else %}#6b7280{% endif %};">{{ error_vs_cocomo_pct|floatformat:0 }}%</div>
+      <div class="hint">{{ error_vs_cocomo_pm|floatformat:1 }} PM de diferencia en MAE (Wilcoxon p=0,0167)</div>
     </div>
   </div>
 
   <div class="grid grid-2">
     <div class="card">
       <h3>Precisión por método</h3>
-      <p class="hint">Error absoluto medio, menor es mejor</p>
+      <p class="hint">MAE: error absoluto medio (PM). MMRE/MdMRE: error relativo. PRED(25): % de estimaciones con error ≤25%. Menor MAE/MMRE/MdMRE y mayor PRED(25) es mejor.</p>
       {% for metodo, vals in cv_metrics.items %}
         <div class="bar-row">
-          <div class="bar-label"><span>{% if metodo == 'mlp' %}Perceptrón multicapa{% elif metodo == 'linreg' %}Regresión lineal{% else %}COCOMO intermedio{% endif %}</span><span>{{ vals.MAE|floatformat:1 }}</span></div>
+          <div class="bar-label">
+            <span>{% if metodo == 'mlp' %}Perceptrón multicapa{% elif metodo == 'linreg' %}Regresión lineal{% else %}COCOMO intermedio{% endif %}{% if metodo == best_mae_method %} <span class="pill-best">mejor MAE</span>{% endif %}{% if metodo == best_pred25_method %} <span class="pill-best">mejor PRED25</span>{% endif %}</span>
+            <span>{{ vals.MAE|floatformat:1 }}</span>
+          </div>
           <div class="bar-track"><div class="bar-fill {{ metodo }}" style="width: {% widthratio vals.MAE max_mae 100 %}%"></div></div>
         </div>
       {% endfor %}
+      <table style="margin-top:12px;">
+        <thead>
+          <tr><th>Método</th><th>MAE</th><th>MMRE</th><th>MdMRE</th><th>PRED(25)</th></tr>
+        </thead>
+        <tbody>
+          {% for metodo, vals in cv_metrics.items %}
+          <tr>
+            <td>{% if metodo == 'mlp' %}MLP{% elif metodo == 'linreg' %}Regresión lineal{% else %}COCOMO{% endif %}</td>
+            <td>{{ vals.MAE|floatformat:1 }}</td>
+            <td>{{ vals.MMRE|floatformat:2 }}</td>
+            <td>{{ vals.MdMRE|floatformat:2 }}</td>
+            <td>{% widthratio vals.PRED25 1 100 %}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
       <a href="{% url 'estimator:model_eval' %}" class="pill">Ver evaluación completa →</a>
     </div>
 

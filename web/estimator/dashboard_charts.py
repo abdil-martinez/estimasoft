@@ -1,65 +1,92 @@
-"""Geometria de los widgets del Dashboard: linea de costo en el tiempo y dona
-de modos de desarrollo. El ranking y el histograma de error se resuelven con
-el mismo patron .bar-track/.bar-fill que ya usa panel.html, calculado en la
-vista. Mismo enfoque que charts.py: SVG calculado en Python, sin JS ni
+"""Geometria de los widgets de 'Indicadores': scatter KLOC vs esfuerzo y dona
+de modos de desarrollo. El ranking y las barras de error local se resuelven
+con el mismo patron .bar-track/.bar-fill que ya usa panel.html, calculado en
+la vista. Mismo enfoque que charts.py: SVG calculado en Python, sin JS ni
 librerias de graficos."""
 
 import math
-
-LINE_W, LINE_H = 560, 200
-LINE_MARGIN = {"left": 8, "right": 8, "top": 12, "bottom": 24}
 
 DONUT_SIZE = 180
 DONUT_R = 62
 DONUT_STROKE = 26
 
+SCATTER_W, SCATTER_H = 560, 280
+SCATTER_MARGIN = {"left": 48, "right": 16, "top": 16, "bottom": 32}
+SCATTER_PLOT_W = SCATTER_W - SCATTER_MARGIN["left"] - SCATTER_MARGIN["right"]
+SCATTER_PLOT_H = SCATTER_H - SCATTER_MARGIN["top"] - SCATTER_MARGIN["bottom"]
 
-def build_timeline(estimations):
-    """estimations: lista ordenada ascendente por created_at, con .cost_bs,
-    .project_name y .created_at. None si no hay datos."""
+
+def build_effort_scatter(estimations):
+    """estimations: lista con .kloc, .effort_mlp_pm, .effort_cocomo_pm,
+    .project_name. Dispersion KLOC (eje X) vs esfuerzo en PM (eje Y), con una
+    serie por metodo (MLP y COCOMO), cada una conectada por una linea al
+    ordenar por KLOC -- reemplaza el 'costo en el tiempo' (las estimaciones de
+    prueba se guardan todas el mismo dia, ese eje no aporta). Util tambien
+    para detectar casos donde el esfuerzo escala muy por encima del resto
+    (factores de costo altos o posible extrapolacion)."""
     rows = list(estimations)
     if not rows:
         return None
 
-    values = [r.cost_bs for r in rows]
-    vmin, vmax = min(values), max(values)
-    if vmax == vmin:
-        vmin = 0
+    klocs = [r.kloc for r in rows]
+    efforts = [r.effort_mlp_pm for r in rows] + [r.effort_cocomo_pm for r in rows]
+    kmin, kmax = min(klocs), max(klocs)
+    emin, emax = min(efforts), max(efforts)
+    if kmax == kmin:
+        kmin = 0
+    if emax == emin:
+        emin = 0
+    kpad = (kmax - kmin) * 0.08 or 1
+    epad = (emax - emin) * 0.08 or 1
 
-    plot_w = LINE_W - LINE_MARGIN["left"] - LINE_MARGIN["right"]
-    plot_h = LINE_H - LINE_MARGIN["top"] - LINE_MARGIN["bottom"]
-    n = len(rows)
-
-    def sx(i):
-        return LINE_MARGIN["left"] + (i / (n - 1) if n > 1 else 0.5) * plot_w
+    def sx(v):
+        return SCATTER_MARGIN["left"] + (v - (kmin - kpad)) / ((kmax + kpad) - (kmin - kpad)) * SCATTER_PLOT_W
 
     def sy(v):
-        span = vmax - vmin or 1
-        return LINE_MARGIN["top"] + plot_h - (v - vmin) / span * plot_h
+        return SCATTER_MARGIN["top"] + SCATTER_PLOT_H - (v - (emin - epad)) / ((emax + epad) - (emin - epad)) * SCATTER_PLOT_H
 
-    points = [
-        {
-            "x": round(sx(i), 1),
-            "y": round(sy(r.cost_bs), 1),
-            "label": r.project_name,
-            "value": r.cost_bs,
-            "date": r.created_at,
-        }
-        for i, r in enumerate(rows)
-    ]
-    baseline = LINE_MARGIN["top"] + plot_h
-    path = "M " + " L ".join(f"{p['x']},{p['y']}" for p in points)
-    area = path + f" L {points[-1]['x']},{baseline} L {points[0]['x']},{baseline} Z"
+    ordered = sorted(rows, key=lambda r: r.kloc)
+
+    def series(attr):
+        pts = [
+            {
+                "cx": round(sx(r.kloc), 1),
+                "cy": round(sy(getattr(r, attr)), 1),
+                "kloc": round(r.kloc, 1),
+                "effort": round(getattr(r, attr), 1),
+                "name": r.project_name,
+            }
+            for r in ordered
+        ]
+        path = "M " + " L ".join(f"{p['cx']},{p['cy']}" for p in pts)
+        return pts, path
+
+    points_mlp, path_mlp = series("effort_mlp_pm")
+    points_cocomo, path_cocomo = series("effort_cocomo_pm")
+
+    def nice_ticks(lo, hi, count=4):
+        span = hi - lo
+        if span <= 0:
+            return [lo]
+        step = span / count
+        return [round(lo + step * i, 1) for i in range(count + 1)]
+
+    xticks = [{"pos": round(sx(v), 1), "label": f"{v:,.0f}"} for v in nice_ticks(kmin, kmax)]
+    yticks = [{"pos": round(sy(v), 1), "label": f"{v:,.0f}"} for v in nice_ticks(emin, emax)]
 
     return {
-        "width": LINE_W,
-        "height": LINE_H,
-        "plot_bottom": baseline,
-        "points": points,
-        "path": path,
-        "area": area,
-        "first": points[0],
-        "last": points[-1],
+        "width": SCATTER_W,
+        "height": SCATTER_H,
+        "plot_left": SCATTER_MARGIN["left"],
+        "plot_top": SCATTER_MARGIN["top"],
+        "plot_right": SCATTER_W - SCATTER_MARGIN["right"],
+        "plot_bottom": SCATTER_H - SCATTER_MARGIN["bottom"],
+        "points_mlp": points_mlp,
+        "path_mlp": path_mlp,
+        "points_cocomo": points_cocomo,
+        "path_cocomo": path_cocomo,
+        "xticks": xticks,
+        "yticks": yticks,
     }
 
 
@@ -99,26 +126,37 @@ def build_mode_donut(rows):
     }
 
 
-ERROR_BUCKETS = [
-    ("≤ 10 %", 0, 10, "good"),
-    ("10 – 25 %", 10, 25, "warning"),
-    ("> 25 %", 25, None, "serious"),
-]
-
-
-def build_error_histogram(local_projects):
-    """local_projects: iterable con .error_pct (puede ser None). None si
-    ningun proyecto tiene estimacion del MLP todavia."""
-    errors = [p.error_pct for p in local_projects if p.error_pct is not None]
-    if not errors:
+def build_local_error_bars(rows):
+    """rows: lista de dicts {"name", "error_mlp", "error_cocomo"} (% de
+    error absoluto frente al esfuerzo real, ya calculados en la vista).
+    Barra doble por proyecto (MLP y COCOMO) para comparar que metodo se
+    adapta mejor al contexto local -- un histograma de conteo (0/0/5) no
+    distingue si el problema es del MLP o de ambos metodos frente a los
+    datos de entrenamiento. Incluye una marca de referencia en 25%
+    (umbral de PRED25). None si no hay proyectos con ambas estimaciones."""
+    if not rows:
         return None
 
-    buckets = []
-    for label, lo, hi, status in ERROR_BUCKETS:
-        count = sum(1 for e in errors if e >= lo and (hi is None or e < hi))
-        buckets.append({"label": label, "count": count, "status": status})
-    vmax = max(b["count"] for b in buckets) or 1
-    for b in buckets:
-        b["pct"] = round(b["count"] / vmax * 100)
+    vmax = max(max(r["error_mlp"], r["error_cocomo"]) for r in rows)
+    vmax = max(vmax, 25) * 1.05
 
-    return {"buckets": buckets, "total": len(errors)}
+    def es_label(value):
+        # Formato "61,7%" calculado en Python: evita mezclar {% localize off %}
+        # (necesario para que el width/left en el style="" use punto decimal,
+        # ver nota en style.css/README sobre LANGUAGE_CODE='es') con texto que
+        # si debe mostrar coma, dentro del mismo bloque de un {% for %}.
+        return f"{value:.1f}".replace(".", ",")
+
+    bars = [
+        {
+            "name": r["name"],
+            "error_mlp": round(r["error_mlp"], 1),
+            "error_cocomo": round(r["error_cocomo"], 1),
+            "error_mlp_label": es_label(r["error_mlp"]),
+            "error_cocomo_label": es_label(r["error_cocomo"]),
+            "pct_mlp": round(r["error_mlp"] / vmax * 100, 1),
+            "pct_cocomo": round(r["error_cocomo"] / vmax * 100, 1),
+        }
+        for r in rows
+    ]
+    return {"bars": bars, "threshold_pct": round(25 / vmax * 100, 1)}

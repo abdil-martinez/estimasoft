@@ -16,7 +16,7 @@
       </div>
       <nav>
         <a href="{% url 'estimator:panel' %}" class="{% if request.resolver_match.url_name == 'panel' %}active{% endif %}">Panel</a>
-        <a href="{% url 'estimator:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="{% url 'estimator:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Indicadores</a>
         <a href="{% url 'estimator:new_estimation' %}" class="{% if request.resolver_match.url_name == 'new_estimation' %}active{% endif %}">Nueva estimación</a>
         <a href="{% url 'estimator:model_eval' %}" class="{% if request.resolver_match.url_name == 'model_eval' %}active{% endif %}">Modelo y evaluación</a>
         <a href="{% url 'estimator:local_projects' %}" class="{% if request.resolver_match.url_name == 'local_projects' %}active{% endif %}">Proyectos locales</a>

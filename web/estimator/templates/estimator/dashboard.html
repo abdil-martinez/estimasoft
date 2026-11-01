@@ -3,30 +3,31 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h2>Dashboard</h2>
+    <h2>Indicadores</h2>
     <p class="subtitle">Vista analítica de estimaciones, modelo y proyectos locales</p>
   </div>
 </div>
 
 <div class="grid grid-4" style="margin-bottom:16px;">
   <div class="card">
-    <div class="stat-label">Costo total estimado</div>
-    <div class="stat-value">
-      {% if total_cost %}<span class="countup" data-decimals="0" data-value="{% localize off %}{{ total_cost }}{% endlocalize %}">{{ total_cost|floatformat:0 }}</span>{% else %}—{% endif %}
-      <span class="stat-unit">Bs</span>
-    </div>
-  </div>
-  <div class="card">
     <div class="stat-label">KLOC promedio por proyecto</div>
     <div class="stat-value">
       {% if avg_kloc %}<span class="countup" data-decimals="1" data-value="{% localize off %}{{ avg_kloc }}{% endlocalize %}">{{ avg_kloc|floatformat:1 }}</span>{% else %}—{% endif %}
+      <span class="stat-unit">KLOC</span>
     </div>
   </div>
   <div class="card">
-    <div class="stat-label">Precisión del modelo (PRED 25)</div>
+    <div class="stat-label">PRED(25) — validación cruzada{% if pred25_n %} (n={{ pred25_n }}){% endif %}</div>
     <div class="stat-value">
       {% if pred25 is not None %}<span class="countup" data-decimals="0" data-value="{% widthratio pred25 1 100 %}">{% widthratio pred25 1 100 %}</span>%{% else %}—{% endif %}
     </div>
+  </div>
+  <div class="card">
+    <div class="stat-label">PRED(25) — proyectos locales{% if local_error_n %} (n={{ local_error_n }}){% endif %}</div>
+    <div class="stat-value">
+      {% if pred25_local is not None %}<span class="countup" data-decimals="0" data-value="{% widthratio pred25_local 1 100 %}">{% widthratio pred25_local 1 100 %}</span>%{% else %}—{% endif %}
+    </div>
+    <p class="hint">Población distinta a la de validación cruzada, no comparar directamente</p>
   </div>
   <div class="card">
     <div class="stat-label">Proyectos locales con error &gt; 25 %</div>
@@ -39,21 +40,33 @@
 
 <div class="grid grid-2" style="margin-bottom:16px;">
   <div class="card">
-    <h3>Costo estimado en el tiempo</h3>
-    <p class="hint">Cada punto es una estimación guardada, en orden cronológico</p>
-    {% if timeline %}
+    <h3>KLOC vs. esfuerzo estimado</h3>
+    <p class="hint">Cada estimación guardada, por método — permite ver casos donde el esfuerzo escala muy por encima del resto</p>
+    {% if effort_scatter %}
     {% localize off %}
-    <svg class="timeline-svg" viewBox="0 0 {{ timeline.width }} {{ timeline.height }}" role="img" aria-label="Costo estimado de cada estimación guardada, en orden cronológico" style="width:100%; height:auto;">
-      <line class="grid-line" x1="0" y1="{{ timeline.plot_bottom }}" x2="{{ timeline.width }}" y2="{{ timeline.plot_bottom }}"></line>
-      <path class="timeline-area" d="{{ timeline.area }}"></path>
-      <path class="timeline-line" d="{{ timeline.path }}"></path>
-      {% for p in timeline.points %}
-      <circle class="timeline-dot" cx="{{ p.x }}" cy="{{ p.y }}" r="4.5"><title>{{ p.label }} · Bs {{ p.value|floatformat:0 }} · {{ p.date|date:"d/m/Y" }}</title></circle>
+    <svg class="timeline-svg" viewBox="0 0 {{ effort_scatter.width }} {{ effort_scatter.height }}" role="img" aria-label="KLOC vs esfuerzo estimado por metodo, para cada estimacion guardada" style="width:100%; height:auto;">
+      {% for t in effort_scatter.yticks %}
+      <line x1="{{ effort_scatter.plot_left }}" y1="{{ t.pos }}" x2="{{ effort_scatter.plot_right }}" y2="{{ t.pos }}" class="grid-line" />
+      <text x="{{ effort_scatter.plot_left|add:-8 }}" y="{{ t.pos|add:4 }}" class="axis-label" text-anchor="end">{{ t.label }}</text>
       {% endfor %}
-      <text class="axis-label" x="{{ timeline.first.x }}" y="{{ timeline.height }}" text-anchor="start">{{ timeline.first.date|date:"d/m" }}</text>
-      <text class="axis-label" x="{{ timeline.last.x }}" y="{{ timeline.height }}" text-anchor="end">{{ timeline.last.date|date:"d/m" }}</text>
+      {% for t in effort_scatter.xticks %}
+      <text x="{{ t.pos }}" y="{{ effort_scatter.plot_bottom|add:20 }}" class="axis-label" text-anchor="middle">{{ t.label }}</text>
+      {% endfor %}
+      <path d="{{ effort_scatter.path_cocomo }}" class="timeline-line cocomo-line"></path>
+      <path d="{{ effort_scatter.path_mlp }}" class="timeline-line"></path>
+      {% for p in effort_scatter.points_cocomo %}
+      <circle class="timeline-dot cocomo-dot" cx="{{ p.cx }}" cy="{{ p.cy }}" r="4"><title>{{ p.name }} (COCOMO) · {{ p.kloc }} KLOC · {{ p.effort }} PM</title></circle>
+      {% endfor %}
+      {% for p in effort_scatter.points_mlp %}
+      <circle class="timeline-dot" cx="{{ p.cx }}" cy="{{ p.cy }}" r="4"><title>{{ p.name }} (MLP) · {{ p.kloc }} KLOC · {{ p.effort }} PM</title></circle>
+      {% endfor %}
+      <text class="axis-label" x="{{ effort_scatter.plot_left }}" y="{{ effort_scatter.height|add:-2 }}" text-anchor="start">KLOC</text>
     </svg>
     {% endlocalize %}
+    <div class="chart-legend" style="margin-top:4px;">
+      <div class="legend-item"><span class="legend-swatch mlp"></span>MLP</div>
+      <div class="legend-item"><span class="legend-swatch cocomo"></span>COCOMO</div>
+    </div>
     {% else %}
     <p class="hint">Todavía no hay estimaciones guardadas.</p>
     {% endif %}
@@ -89,7 +102,7 @@
 
 <div class="grid grid-2">
   <div class="card">
-    <h3>Top proyectos por costo estimado</h3>
+    <h3>Top 5 proyectos por costo estimado</h3>
     <p class="hint">Las estimaciones guardadas de mayor costo</p>
     {% for e in ranking %}
     <div class="bar-row">
@@ -102,17 +115,32 @@
   </div>
 
   <div class="card">
-    <h3>Proyectos locales por error del modelo</h3>
-    <p class="hint">Diferencia entre el esfuerzo real y el estimado por el MLP</p>
-    {% if error_histogram %}
-    {% for b in error_histogram.buckets %}
-    <div class="bar-row">
-      <div class="bar-label"><span>{{ b.label }}</span><span>{{ b.count }} proyecto{{ b.count|pluralize }}</span></div>
-      <div class="bar-track"><div class="bar-fill status-{{ b.status }}" style="width: {{ b.pct }}%"></div></div>
+    <h3>Error por proyecto local: MLP vs. COCOMO</h3>
+    <p class="hint">% de error frente al esfuerzo real reportado, por método — la línea marca el umbral de PRED(25)</p>
+    {% if local_error_bars %}
+    {% localize off %}
+    {% for g in local_error_bars.bars %}
+    <div class="local-error-group">
+      <div class="group-title">{{ g.name }}</div>
+      <div class="bar-row">
+        <div class="bar-label"><span>MLP</span><span>{{ g.error_mlp_label }}%</span></div>
+        <div class="bar-track">
+          <div class="bar-fill mlp" style="width: {{ g.pct_mlp }}%"></div>
+          <div class="bar-threshold" style="left: {{ local_error_bars.threshold_pct }}%"></div>
+        </div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-label"><span>COCOMO</span><span>{{ g.error_cocomo_label }}%</span></div>
+        <div class="bar-track">
+          <div class="bar-fill cocomo" style="width: {{ g.pct_cocomo }}%"></div>
+          <div class="bar-threshold" style="left: {{ local_error_bars.threshold_pct }}%"></div>
+        </div>
+      </div>
     </div>
     {% endfor %}
+    {% endlocalize %}
     {% else %}
-    <p class="hint">Todavía no hay proyectos locales con estimación del MLP.</p>
+    <p class="hint">Todavía no hay proyectos locales con esfuerzo real y estimación registrados.</p>
     {% endif %}
   </div>
 </div>
@@ -125,8 +153,16 @@
 
   function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
 
+  function groupThousands(intStr) {
+    return intStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
   function formatCount(value, decimals) {
-    return decimals > 0 ? value.toFixed(decimals).replace('.', ',') : Math.round(value).toString();
+    if (decimals > 0) {
+      var parts = value.toFixed(decimals).split('.');
+      return groupThousands(parts[0]) + ',' + parts[1];
+    }
+    return groupThousands(Math.round(value).toString());
   }
 
   document.querySelectorAll('.countup').forEach(function (el) {

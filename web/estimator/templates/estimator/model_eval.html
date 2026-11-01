@@ -36,6 +36,49 @@
   </div>
 
   <div class="card" style="margin-bottom:16px;">
+    <h3>Cómo se entrenó el modelo final</h3>
+    <p class="hint">Historial real de entrenamiento de scripts/train_final_model.py (no son valores de ejemplo)</p>
+    <table style="margin-bottom:14px;">
+      <tbody>
+        <tr><td>Límite máximo de épocas configurado</td><td style="text-align:right;">{{ metrics.training.epochs_max }}</td></tr>
+        <tr><td>Paciencia del early stopping</td><td style="text-align:right;">{{ metrics.training.patience }} épocas sin mejorar</td></tr>
+        <tr><td><strong>Épocas realmente entrenadas</strong></td><td style="text-align:right;"><strong>{{ metrics.training.epochs_run }}</strong></td></tr>
+        <tr><td>¿Se activó el early stopping?</td><td style="text-align:right;">{% if metrics.training.epochs_run < metrics.training.epochs_max %}Sí{% else %}No, llegó al límite de épocas{% endif %}</td></tr>
+        <tr><td>Mejor época (menor error de validación)</td><td style="text-align:right;">{{ metrics.training.best_epoch }}</td></tr>
+        <tr><td>Error de validación final (val_loss)</td><td style="text-align:right;">{{ metrics.training.final_val_loss|floatformat:4 }}</td></tr>
+      </tbody>
+    </table>
+
+    {% if loss_curve %}
+    <div class="chart-legend">
+      <span class="legend-item"><span class="legend-swatch mlp"></span>Pérdida de entrenamiento</span>
+      <span class="legend-item"><span class="legend-swatch cocomo"></span>Pérdida de validación</span>
+    </div>
+    <div class="scatter-wrap">
+      {% localize off %}
+      <svg viewBox="0 0 {{ loss_curve.width }} {{ loss_curve.height }}" class="loss-svg">
+        {% for t in loss_curve.yticks %}
+        <line x1="{{ loss_curve.plot_left }}" y1="{{ t.pos }}" x2="{{ loss_curve.plot_right }}" y2="{{ t.pos }}" class="grid-line" />
+        <text x="{{ loss_curve.plot_left|add:-8 }}" y="{{ t.pos|add:4 }}" class="axis-label" text-anchor="end">{{ t.label }}</text>
+        {% endfor %}
+        {% for t in loss_curve.xticks %}
+        <text x="{{ t.pos }}" y="{{ loss_curve.plot_bottom|add:20 }}" class="axis-label" text-anchor="middle">{{ t.label }}</text>
+        {% endfor %}
+        <text x="{{ loss_curve.plot_left }}" y="{{ loss_curve.height|add:-4 }}" class="axis-title">Época</text>
+        <text x="14" y="16" class="axis-title">MSE (log)</text>
+
+        <path d="{{ loss_curve.train_path }}" class="loss-line train" />
+        <path d="{{ loss_curve.val_path }}" class="loss-line val" />
+        <circle cx="{{ loss_curve.best_point.x }}" cy="{{ loss_curve.best_point.y }}" r="4" class="loss-best-point" />
+        <text x="{{ loss_curve.best_point.x|add:-6 }}" y="{{ loss_curve.best_point.y|add:-10 }}" class="loss-best-label" text-anchor="end">Época {{ loss_curve.best_point.epoch }} · val_loss {{ loss_curve.best_point.val_loss }}</text>
+      </svg>
+      {% endlocalize %}
+    </div>
+    <p class="hint" style="margin-top:10px;">Escala logarítmica en el eje vertical (el error baja de ~20-34 a ~0.2-0.8). Ambas curvas bajan sostenidamente sin separarse ni repuntar, por eso el early stopping no se activó: nunca hubo {{ metrics.training.patience }} épocas seguidas sin mejora.</p>
+    {% endif %}
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
     <h3>Prueba de hipótesis</h3>
     <p class="hint">Wilcoxon sobre los errores pareados MLP vs COCOMO</p>
     <div class="stat-value" style="font-size:1.6rem;">p = {{ metrics.hypothesis_test.pvalue|floatformat:4 }}</div>

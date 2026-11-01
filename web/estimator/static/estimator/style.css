@@ -15,7 +15,7 @@
   --success: #1a7f4e;
   --cocomo: #c2541f;
   --teal: #1f8f6e;
-  --violet: #6a4fa0;
+  --violet: #a3348f;
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-serious: #ec835a;
@@ -136,7 +136,7 @@ body {
 .card .hint { color: var(--text-muted); font-size: 0.78rem; margin: 0 0 12px; }
 .stat-label { color: var(--text-muted); font-size: 0.82rem; margin-bottom: 6px; }
 .stat-value { font-size: 1.8rem; font-weight: 600; }
-.stat-unit { font-size: 0.85rem; color: var(--text-muted); font-weight: 400; margin-left: 4px; }
+.stat-unit { font-size: 1rem; color: var(--text-muted); font-weight: 400; margin-left: 4px; }
 
 table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 th { text-align: left; color: var(--text-muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--border); }
@@ -147,7 +147,12 @@ tbody tr:hover { background: #f7f8fa; }
 
 .bar-row { margin-bottom: 14px; }
 .bar-row .bar-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px; }
-.bar-track { background: #eceef2; border-radius: 6px; height: 8px; overflow: hidden; }
+.bar-track { background: #eceef2; border-radius: 6px; height: 8px; overflow: hidden; position: relative; }
+.bar-threshold { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--text-muted); opacity: 0.6; }
+.local-error-group { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.local-error-group:last-child { border-bottom: none; }
+.local-error-group .group-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; }
+.local-error-group .bar-row { margin-bottom: 6px; }
 .bar-fill { height: 100%; border-radius: 6px; }
 .bar-fill.mlp { background: var(--accent); }
 .bar-fill.cocomo { background: var(--cocomo); }
@@ -177,6 +182,7 @@ tbody tr:hover { background: #f7f8fa; }
 .result-sub { color: #8b91a3; font-size: 0.78rem; margin-top: 4px; }
 
 .pill { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: #eceef2; color: var(--text-muted); }
+.pill-best { font-size: 0.68rem; padding: 1px 7px; border-radius: 999px; background: #e4f6ec; color: var(--success); font-weight: 600; margin-left: 4px; }
 
 .messages { list-style: none; padding: 0; margin: 0 0 16px; }
 .messages li { padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 0.88rem; }
@@ -231,17 +237,26 @@ tbody tr:hover { background: #f7f8fa; }
 .chart-color.embedded { color: var(--violet); }
 .legend-swatch.chart-color { background: currentColor; border: none; }
 
+/* Modelo y evaluacion: curva de entrenamiento (loss/val_loss por epoca) */
+.loss-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.loss-line.train { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.loss-line.val { fill: none; stroke: var(--cocomo); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.loss-best-point { fill: var(--card-bg); stroke: var(--cocomo); stroke-width: 2; }
+.loss-best-label { font-size: 10px; fill: var(--text); font-family: inherit; }
+
 /* Dashboard: costo estimado en el tiempo */
 .timeline-svg { width: 100%; height: auto; display: block; overflow: visible; }
 .timeline-area { fill: var(--accent); opacity: 0.08; }
 .timeline-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.timeline-line.cocomo-line { stroke: var(--cocomo); stroke-dasharray: 4 3; }
 .timeline-dot { fill: var(--card-bg); stroke: var(--accent); stroke-width: 2; cursor: pointer; transform-box: fill-box; transform-origin: center; }
+.timeline-dot.cocomo-dot { stroke: var(--cocomo); }
 .timeline-dot:hover { stroke-width: 3.5; }
 
 /* Dashboard: dona de modos de desarrollo */
 .donut-svg { flex-shrink: 0; }
 .donut-track { stroke: #eceef2; }
-.donut-segment { stroke-linecap: round; cursor: pointer; transition: stroke-dasharray 650ms ease-out, stroke-width 150ms ease-out; }
+.donut-segment { stroke: currentColor; stroke-linecap: round; cursor: pointer; transition: stroke-dasharray 650ms ease-out, stroke-width 150ms ease-out; }
 .donut-segment:hover { stroke-width: 30; }
 .donut-center { font-size: 28px; font-weight: 600; fill: var(--text); font-family: inherit; }
 

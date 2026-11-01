@@ -88,6 +88,18 @@ def eval_predictions():
     return pd.read_csv(path)
 
 
+def train_history():
+    """Historial epoca por epoca (loss/val_loss) del ultimo entrenamiento del
+    modelo final (scripts/train_final_model.py), para mostrar como se llego
+    al resultado en la pantalla 'Modelo y evaluacion'."""
+    import pandas as pd
+
+    path = PROCESSED_DIR / "train_history.csv"
+    if not path.exists():
+        raise FileNotFoundError(path)
+    return pd.read_csv(path)
+
+
 def model_metrics():
     """Metadata de evaluacion (dataset, arquitectura, metricas de CV) para la
     pantalla 'Modelo y evaluacion'. Lanza FileNotFoundError si el modelo

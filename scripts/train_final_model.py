@@ -94,11 +94,19 @@ def main():
     early_stop = keras.callbacks.EarlyStopping(
         monitor="val_loss", patience=20, restore_best_weights=True,
     )
-    model.fit(
+    history = model.fit(
         X_scaled, y_log, validation_split=0.15,
         epochs=200, batch_size=8, verbose=0, callbacks=[early_stop],
     )
     model.save(MODELS_DIR / "mlp_final.keras")
+
+    epochs_run = len(history.history["loss"])
+    best_epoch = int(np.argmin(history.history["val_loss"])) + 1
+    pd.DataFrame({
+        "epoch": range(1, epochs_run + 1),
+        "loss": history.history["loss"],
+        "val_loss": history.history["val_loss"],
+    }).to_csv(PROCESSED / "train_history.csv", index=False)
 
     scaler_payload = {
         "feature_order": feature_cols,
@@ -125,6 +133,15 @@ def main():
             "optimizer": "Adam (lr=0.001)",
             "output": "log(esfuerzo en persona-mes)",
             "selection_counts": arch_selection,
+        },
+        "training": {
+            "epochs_max": 200,
+            "patience": 20,
+            "epochs_run": epochs_run,
+            "best_epoch": best_epoch,
+            "final_train_loss": history.history["loss"][-1],
+            "final_val_loss": history.history["val_loss"][-1],
+            "best_val_loss": min(history.history["val_loss"]),
         },
         "cv_metrics": eval_metrics,
         "hypothesis_test": hypothesis_test,

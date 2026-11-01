@@ -118,6 +118,10 @@ TIME_ZONE = 'America/La_Paz'
 
 USE_I18N = True
 
+FORMAT_MODULE_PATH = 'estimasoft.formats'
+
+USE_THOUSAND_SEPARATOR = True
+
 USE_TZ = True
 
 
